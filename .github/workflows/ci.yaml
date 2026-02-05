@@ -19,6 +19,12 @@ jobs:
         with:
           version: 'latest'
 
+      - name: Install kubeconform
+        run: |
+          wget https://github.com/yannh/kubeconform/releases/download/v0.6.4/kubeconform-linux-amd64.tar.gz
+          tar xf kubeconform-linux-amd64.tar.gz
+          sudo mv kubeconform /usr/local/bin/
+
       - name: Validate Manifests (Lint & Schema)
         run: |
           chmod +x ./scripts/validate-manifests.sh
