@@ -6,14 +6,14 @@ namespace: media
 resources:
   - namespace.yaml
   - network-policy.yaml
-  - prowlarr/kustomization.yaml
-  - sonarr/kustomization.yaml
-  - radarr/kustomization.yaml
-  - lidarr/kustomization.yaml
-  - readarr/kustomization.yaml
-  - bazarr/kustomization.yaml
-  - sabnzbd/kustomization.yaml
-  - plex/kustomization.yaml
-  - overseerr/kustomization.yaml
-  - tautulli/kustomization.yaml
-  - recyclarr/kustomization.yaml
+  - prowlarr/
+  - sonarr/
+  - radarr/
+  - lidarr/
+  - readarr/
+  - bazarr/
+  - sabnzbd/
+  - plex/
+  - overseerr/
+  - tautulli/
+  - recyclarr/
