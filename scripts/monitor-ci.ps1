@@ -1,63 +1,53 @@
 $ErrorActionPreference = "Stop"
 
-Write-Host "🔍 Checking latest CI Run status..."
+Write-Host "Checking latest CI Run status..."
 
 # Ensure gh is authenticated
 try {
-    # Using null redirection compatible with most PS versions
     gh auth status 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "Not authenticated" }
 } catch {
-    Write-Error "❌ GitHub CLI is not authenticated. Please run 'gh auth login'."
+    Write-Error "GitHub CLI is not authenticated. Please run 'gh auth login'."
     exit 1
 }
 
 # Get the latest run for the 'validate' workflow
-$latestRunJson = gh run list --workflow ci.yaml --limit 1 --json status,conclusion,url | Out-String
+$json = gh run list --workflow ci.yaml --limit 1 --json status,conclusion,url | Out-String
 
-# Trim whitespace - safely handle null
-$jsonStr = if ($latestRunJson) { $latestRunJson.Trim() } else { "" }
-
-if ([string]::IsNullOrEmpty($jsonStr) -or $jsonStr -eq '[]') {
-    Write-Warning "⚠️ No runs found for workflow ci.yaml"
+if ([string]::IsNullOrWhiteSpace($json) -or $json.Trim() -eq '[]') {
+    Write-Warning "No runs found for workflow ci.yaml"
     exit 0
 }
 
 try {
-    $runs = $latestRunJson | ConvertFrom-Json
-    $latestRun = $runs[0]
+    $runs = $json | ConvertFrom-Json
+    $run = $runs[0]
 
-    $status = $latestRun.status
-    $conclusion = $latestRun.conclusion
-    $url = $latestRun.url
+    Write-Host "Status: $($run.status)"
 
-    Write-Host "   Status: $status"
-
-    if ($status -eq "in_progress" -or $status -eq "queued") {
-        Write-Host "⏳ CI is currently running. Watching logs..."
+    if ($run.status -eq "in_progress" -or $run.status -eq "queued") {
+        Write-Host "CI is currently running. Watching logs..."
         gh run watch
         
-        # Check exit code
-        gh run view --exit-status 2>&1 | Out-Null
-        if ($LASTEXITCODE -eq 0) {
-            Write-Host "✅ CI Succeeded!" -ForegroundColor Green
+        if ($?) {
+            Write-Host "CI Succeeded!" -ForegroundColor Green
         } else {
-            Write-Host "❌ CI Failed." -ForegroundColor Red
+            Write-Host "CI Failed." -ForegroundColor Red
         }
         
-    } elseif ($conclusion -eq "success") {
-        Write-Host "✅ Latest CI Run Succeeded." -ForegroundColor Green
-        Write-Host "   URL: $url"
+    } elseif ($run.conclusion -eq "success") {
+        Write-Host "Latest CI Run Succeeded." -ForegroundColor Green
+        Write-Host "URL: $($run.url)"
         
     } else {
-        Write-Host "❌ Latest CI Run Failed ($conclusion)." -ForegroundColor Red
-        Write-Host "   URL: $url"
-        Write-Host "   Fetching failure logs..."
+        Write-Host "Latest CI Run Failed ($($run.conclusion))." -ForegroundColor Red
+        Write-Host "URL: $($run.url)"
+        Write-Host "Fetching failure logs..."
         gh run view --log-failed
         exit 1
     }
 } catch {
-    $err = $_
-    Write-Error ("Failed to parse JSON or monitor run: " + $err)
+    Write-Error "Failed to parse JSON or monitor run."
+    Write-Error $_
     exit 1
 }
