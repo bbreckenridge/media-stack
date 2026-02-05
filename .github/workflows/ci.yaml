@@ -1,0 +1,25 @@
+name: Media Stack CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  validate:
+    name: Validate Manifests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'latest'
+
+      - name: Validate Manifests (Lint & Schema)
+        run: |
+          chmod +x ./scripts/validate-manifests.sh
+          ./scripts/validate-manifests.sh

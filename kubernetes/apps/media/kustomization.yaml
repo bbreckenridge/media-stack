@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: media
+
+resources:
+  - namespace.yaml
+  - network-policy.yaml
+  - prowlarr/kustomization.yaml
+  - sonarr/kustomization.yaml
+  - radarr/kustomization.yaml
+  - lidarr/kustomization.yaml
+  - readarr/kustomization.yaml
+  - bazarr/kustomization.yaml
+  - sabnzbd/kustomization.yaml
+  - plex/kustomization.yaml
+  - overseerr/kustomization.yaml
+  - tautulli/kustomization.yaml
+  - recyclarr/kustomization.yaml
