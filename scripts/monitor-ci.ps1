@@ -57,6 +57,7 @@ try {
         exit 1
     }
 } catch {
-    Write-Error "Failed to parse JSON or monitor run: $_"
+    $err = $_
+    Write-Error ("Failed to parse JSON or monitor run: " + $err)
     exit 1
 }
