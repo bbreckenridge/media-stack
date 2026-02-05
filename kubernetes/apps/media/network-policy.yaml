@@ -1,0 +1,54 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: media
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-system-traffic
+  namespace: media
+spec:
+  podSelector: {} # Apply to all pods in namespace
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: istio-system 
+    # Allow traffic from ingress gateway and pilot
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+    ports:
+    - protocol: UDP
+      port: 53 # Allow CoreDNS
+    - protocol: TCP
+      port: 53 # Allow CoreDNS
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: istio-system
+    # Allow traffic to istiod/gateway
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-internet-egress
+  namespace: media
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - {} # Explicitly allowing all egress for now to fetch metadata (TMDB/TVDB) until Egress Gateway is configured.

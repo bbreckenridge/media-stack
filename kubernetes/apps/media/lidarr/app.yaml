@@ -1,0 +1,157 @@
+apiVersion: -v1
+kind: PersistentVolumeClaim
+metadata:
+  name: lidarr-config
+  namespace: media
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: hot-storage
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: lidarr
+  namespace: media
+spec:
+  serviceName: lidarr
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lidarr
+  template:
+    metadata:
+      labels:
+        app: lidarr
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9794"
+        prometheus.io/path: "/metrics"
+    spec:
+      securityContext:
+        fsGroup: 1000
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: exportarr
+          image: ghcr.io/onedr0p/exportarr:v2.0.0
+          imagePullPolicy: IfNotPresent
+          args: ["lidarr"]
+          env:
+            - name: PORT
+              value: "9794"
+            - name: URL
+              value: "http://localhost:8686"
+            - name: APIKEY
+              valueFrom:
+                secretKeyRef:
+                  name: lidarr-secret
+                  key: api_key
+          ports:
+            - containerPort: 9794
+              name: metrics
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 50Mi
+            limits:
+              cpu: 100m
+              memory: 100Mi
+        - name: lidarr
+          image: lscr.io/linuxserver/lidarr:latest
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: PUID
+              value: "1000"
+            - name: PGID
+              value: "1000"
+            - name: TZ
+              value: "Etc/UTC"
+          ports:
+            - containerPort: 8686
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          startupProbe:
+            httpGet:
+              path: /ping
+              port: http
+            failureThreshold: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: media
+              mountPath: /media
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              memory: "250Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: lidarr-config
+        - name: media
+          persistentVolumeClaim:
+            claimName: media-library
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lidarr
+  namespace: media
+spec:
+  ports:
+    - port: 8686
+      targetPort: 8686
+      name: http
+  selector:
+    app: lidarr
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: lidarr
+  namespace: media
+spec:
+  hosts:
+    - "lidarr.home.lab"
+  gateways:
+    - istio-system/default-gateway
+  http:
+    - route:
+        - destination:
+            host: lidarr
+            port:
+              number: 8686

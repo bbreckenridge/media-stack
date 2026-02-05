@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: media
+  labels:
+    istio-injection: enabled
+---
+# Default Deny-All for the namespace (Zero Trust)
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: default-deny-all
+  namespace: media
+spec:
+  {}
+---
+# Allow authenticated users access
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-authenticated-user
+  namespace: media
+spec:
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        requestPrincipals: ["*"] # Requires ANY valid JWT validated by the Ingress/Sidecar
+  - to:
+    - operation:
+        ports: ["9794"] # Allow Prometheus execution without JWT (for OTel Scraper)
+---
+# Validate tokens against Keycloak
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: keycloak-jwt
+  namespace: media
+spec:
+  jwtRules:
+    - issuer: "https://auth.home.lab/realms/master"
+      jwksUri: "http://keycloak.auth.svc.cluster.local:8080/realms/master/protocol/openid-connect/certs" # internal cluster DNS for speed/reliability
