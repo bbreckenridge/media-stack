@@ -1,0 +1,41 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: media
+
+resources:
+  - ../../media
+
+patches:
+  - target:
+      group: security.istio.io
+      version: v1beta1
+      kind: AuthorizationPolicy
+      name: default-deny-all
+    patch: |-
+      apiVersion: security.istio.io/v1beta1
+      kind: AuthorizationPolicy
+      metadata:
+        name: default-deny-all
+      $patch: delete
+  - target:
+      group: security.istio.io
+      version: v1beta1
+      kind: AuthorizationPolicy
+      name: allow-authenticated-user
+    patch: |-
+      apiVersion: security.istio.io/v1beta1
+      kind: AuthorizationPolicy
+      metadata:
+        name: allow-authenticated-user
+      $patch: delete
+  - target:
+      group: security.istio.io
+      version: v1beta1
+      kind: RequestAuthentication
+      name: keycloak-jwt
+    patch: |-
+      apiVersion: security.istio.io/v1beta1
+      kind: RequestAuthentication
+      metadata:
+        name: keycloak-jwt
+      $patch: delete

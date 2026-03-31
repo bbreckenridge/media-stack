@@ -8,24 +8,34 @@ on:
 
 jobs:
   validate:
-    name: Validate Manifests
+    name: Validate & Lint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install kubectl
-        uses: azure/setup-kubectl@v4
+      - name: YAML Lint
+        uses: ibiqlik/action-yamllint@v3
         with:
-          version: 'latest'
+          config_file: .yamllint
 
-      - name: Install kubeconform
-        run: |
-          wget https://github.com/yannh/kubeconform/releases/download/v0.6.4/kubeconform-linux-amd64.tar.gz
-          tar xf kubeconform-linux-amd64.tar.gz
-          sudo mv kubeconform /usr/local/bin/
+      - name: Kubeconform (Schema Validation)
+        uses: yannh/kubeconform-action@v1
+        with:
+          kubeconform_args: "-summary -ignore-missing-schemas -strict kubernetes/apps/media"
 
-      - name: Validate Manifests (Lint & Schema)
-        run: |
-          chmod +x ./scripts/validate-manifests.sh
-          ./scripts/validate-manifests.sh
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner (IaC)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          scan-ref: '.'
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'

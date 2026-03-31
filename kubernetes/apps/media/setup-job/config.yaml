@@ -1,0 +1,224 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: setup-script
+  namespace: media
+data:
+  configure.sh: |
+    #!/bin/bash
+    set -e
+
+    # --- Configuration ---
+    # These URLs work because we are inside the cluster
+    PROWLARR_URL="http://prowlarr:9696"
+    SONARR_URL="http://sonarr:8989"
+    RADARR_URL="http://radarr:7878"
+    LIDARR_URL="http://lidarr:8686"
+    READARR_URL="http://readarr:8787"
+    BAZARR_URL="http://bazarr:6767"
+    SABNZBD_URL="http://sabnzbd:8080" # SAB uses API key query param, not header usually, or just Basic Auth? SAB API Key is header 'X-API-Key' usually supported now.
+
+    # Helper function to check health
+    wait_for_service() {
+        local url="$1"
+        local service="$2"
+        echo "Waiting for $service ($url)..."
+        until curl -s -o /dev/null --fail "$url/api/v3/system/status?apikey=$3"; do
+             # SABnzbd endpoint is different (/api?mode=version)
+             if [[ "$service" == "SABnzbd" ]]; then
+                if curl -s -o /dev/null --fail "$url/api?mode=version&apikey=$3"; then break; fi
+             fi
+             sleep 5
+        done
+        echo "✅ $service is up."
+    }
+
+    echo "🔌 Starting Integration Setup..."
+
+    wait_for_service "$PROWLARR_URL" "Prowlarr" "$PROWLARR_API_KEY"
+    wait_for_service "$SONARR_URL" "Sonarr" "$SONARR_API_KEY"
+    wait_for_service "$RADARR_URL" "Radarr" "$RADARR_API_KEY"
+    wait_for_service "$LIDARR_URL" "Lidarr" "$LIDARR_API_KEY"
+    wait_for_service "$READARR_URL" "Readarr" "$READARR_API_KEY"
+    wait_for_service "$SABNZBD_URL" "SABnzbd" "$SABNZBD_API_KEY"
+
+    # 1. Prowlarr -> Sonarr
+    # We add Sonarr as an "App" in Prowlarr so Prowlarr pushes indexers to it.
+    echo "--- Configuring Prowlarr -> Sonarr Link ---"
+    # Idempotency check: Get applications, iterate, check names
+    # Note: Prowlarr API is /api/v1 not v3 usually for some things, but let's assume consistent V1
+    EXISTING=$(curl -s "$PROWLARR_URL/api/v1/applications?apikey=$PROWLARR_API_KEY")
+    if echo "$EXISTING" | grep -q "\"name\": \"Sonarr\""; then
+        echo "✅ Prowlarr -> Sonarr link already exists."
+    else
+        echo "Linking Sonarr..."
+        curl -s -X POST "$PROWLARR_URL/api/v1/applications?apikey=$PROWLARR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{
+                \"name\": \"Sonarr\",
+                \"appProfileId\": 1,
+                \"baseUrl\": \"$SONARR_URL\", 
+                \"apiKey\": \"$SONARR_API_KEY\",
+                \"implementation\": \"Sonarr\"
+            }"
+    fi
+
+    # 2. Prowlarr -> Radarr
+    echo "--- Configuring Prowlarr -> Radarr Link ---"
+    if echo "$EXISTING" | grep -q "\"name\": \"Radarr\""; then
+        echo "✅ Prowlarr -> Radarr link already exists."
+    else
+        echo "Linking Radarr..."
+        curl -s -X POST "$PROWLARR_URL/api/v1/applications?apikey=$PROWLARR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{
+                \"name\": \"Radarr\",
+                \"appProfileId\": 1,
+                \"baseUrl\": \"$RADARR_URL\",
+                \"apiKey\": \"$RADARR_API_KEY\",
+                \"implementation\": \"Radarr\"
+            }"
+    fi
+
+    # 3. Sonarr -> SABnzbd
+    echo "--- Configuring Sonarr -> SABnzbd Link ---"
+    # Sonarr V3 API: /api/v3/downloadclient
+    EXISTING_DL=$(curl -s "$SONARR_URL/api/v3/downloadclient?apikey=$SONARR_API_KEY")
+    if echo "$EXISTING_DL" | grep -q "\"name\": \"SABnzbd\""; then
+         echo "✅ Sonarr -> SABnzbd link already exists."
+    else
+         echo "Linking SABnzbd in Sonarr..."
+         curl -s -X POST "$SONARR_URL/api/v3/downloadclient?apikey=$SONARR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{
+                \"name\": \"SABnzbd\",
+                \"enable\": true,
+                \"protocol\": \"usenet\",
+                \"priority\": 1,
+                \"implementation\": \"Sabnzbd\",
+                \"fields\": [
+                    { \"name\": \"host\", \"value\": \"sabnzbd\" },
+                    { \"name\": \"port\", \"value\": 8080 },
+                    { \"name\": \"apiKey\", \"value\": \"$SABNZBD_API_KEY\" },
+                    { \"name\": \"username\", \"value\": \"\" },
+                    { \"name\": \"password\", \"value\": \"\" },
+                    { \"name\": \"tvCategory\", \"value\": \"tv\" },
+                    { \"name\": \"recentTvPriority\", \"value\": 0 },
+                    { \"name\": \"olderTvPriority\", \"value\": 0 },
+                    { \"name\": \"useSsl\", \"value\": false }
+                ]
+            }"
+    fi
+
+    # 4. Radarr -> SABnzbd (Identical logic, different endpoint)
+    echo "--- Configuring Radarr -> SABnzbd Link ---"
+    EXISTING_DL_R=$(curl -s "$RADARR_URL/api/v3/downloadclient?apikey=$RADARR_API_KEY")
+    if echo "$EXISTING_DL_R" | grep -q "\"name\": \"SABnzbd\""; then
+         echo "✅ Radarr -> SABnzbd link already exists."
+    else
+         echo "Linking SABnzbd in Radarr..."
+         curl -s -X POST "$RADARR_URL/api/v3/downloadclient?apikey=$RADARR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{
+                \"name\": \"SABnzbd\",
+                \"enable\": true,
+                \"protocol\": \"usenet\",
+                \"priority\": 1,
+                \"implementation\": \"Sabnzbd\",
+                \"fields\": [
+                    { \"name\": \"host\", \"value\": \"sabnzbd\" },
+                    { \"name\": \"port\", \"value\": 8080 },
+                    { \"name\": \"apiKey\", \"value\": \"$SABNZBD_API_KEY\" },
+                    { \"name\": \"username\", \"value\": \"\" },
+                    { \"name\": \"password\", \"value\": \"\" },
+                    { \"name\": \"movieCategory\", \"value\": \"movies\" },
+                    { \"name\": \"useSsl\", \"value\": false }
+                ]
+            }"
+    fi
+
+    # 5. Prowlarr -> Lidarr
+    echo "--- Configuring Prowlarr -> Lidarr Link ---"
+    if echo "$EXISTING" | grep -q "\"name\": \"Lidarr\""; then
+        echo "✅ Prowlarr -> Lidarr link already exists."
+    else
+        echo "Linking Lidarr..."
+        curl -s -X POST "$PROWLARR_URL/api/v1/applications?apikey=$PROWLARR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{
+                \"name\": \"Lidarr\",
+                \"appProfileId\": 1,
+                \"baseUrl\": \"$LIDARR_URL\",
+                \"apiKey\": \"$LIDARR_API_KEY\",
+                \"implementation\": \"Lidarr\"
+            }"
+    fi
+
+    # 6. Prowlarr -> Readarr
+    echo "--- Configuring Prowlarr -> Readarr Link ---"
+    if echo "$EXISTING" | grep -q "\"name\": \"Readarr\""; then
+        echo "✅ Prowlarr -> Readarr link already exists."
+    else
+        echo "Linking Readarr..."
+        curl -s -X POST "$PROWLARR_URL/api/v1/applications?apikey=$PROWLARR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{
+                \"name\": \"Readarr\",
+                \"appProfileId\": 1,
+                \"baseUrl\": \"$READARR_URL\",
+                \"apiKey\": \"$READARR_API_KEY\",
+                \"implementation\": \"Readarr\"
+            }"
+    fi
+
+    # 7. Lidarr -> SABnzbd
+    echo "--- Configuring Lidarr -> SABnzbd Link ---"
+    EXISTING_DL_L=$(curl -s "$LIDARR_URL/api/v1/downloadclient?apikey=$LIDARR_API_KEY")
+    if echo "$EXISTING_DL_L" | grep -q "\"name\": \"SABnzbd\""; then
+         echo "✅ Lidarr -> SABnzbd link already exists."
+    else
+         echo "Linking SABnzbd in Lidarr..."
+         curl -s -X POST "$LIDARR_URL/api/v1/downloadclient?apikey=$LIDARR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{
+                \"name\": \"SABnzbd\",
+                \"enable\": true,
+                \"protocol\": \"usenet\",
+                \"priority\": 1,
+                \"implementation\": \"Sabnzbd\",
+                \"fields\": [
+                    { \"name\": \"host\", \"value\": \"sabnzbd\" },
+                    { \"name\": \"port\", \"value\": 8080 },
+                    { \"name\": \"apiKey\", \"value\": \"$SABNZBD_API_KEY\" },
+                    { \"name\": \"musicCategory\", \"value\": \"audio\" },
+                    { \"name\": \"useSsl\", \"value\": false }
+                ]
+            }"
+    fi
+
+    # 8. Readarr -> SABnzbd
+    echo "--- Configuring Readarr -> SABnzbd Link ---"
+    EXISTING_DL_RD=$(curl -s "$READARR_URL/api/v1/downloadclient?apikey=$READARR_API_KEY")
+    if echo "$EXISTING_DL_RD" | grep -q "\"name\": \"SABnzbd\""; then
+         echo "✅ Readarr -> SABnzbd link already exists."
+    else
+         echo "Linking SABnzbd in Readarr..."
+         curl -s -X POST "$READARR_URL/api/v1/downloadclient?apikey=$READARR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{
+                \"name\": \"SABnzbd\",
+                \"enable\": true,
+                \"protocol\": \"usenet\",
+                \"priority\": 1,
+                \"implementation\": \"Sabnzbd\",
+                \"fields\": [
+                    { \"name\": \"host\", \"value\": \"sabnzbd\" },
+                    { \"name\": \"port\", \"value\": 8080 },
+                    { \"name\": \"apiKey\", \"value\": \"$SABNZBD_API_KEY\" },
+                    { \"name\": \"bookCategory\", \"value\": \"books\" },
+                    { \"name\": \"useSsl\", \"value\": false }
+                ]
+            }"
+    fi
+
+    echo "🎉 Integration Setup Complete!"

@@ -29,7 +29,6 @@ spec:
     spec:
       securityContext:
         fsGroup: 1000
-        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -38,7 +37,6 @@ spec:
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
           env:
@@ -76,10 +74,10 @@ spec:
               mountPath: /tmp
           resources:
             requests:
-              memory: "250Mi"
+              memory: 256Mi
               cpu: "100m"
             limits:
-              memory: "1Gi"
+              memory: 256Mi
               cpu: "1000m"
       volumes:
         - name: config
@@ -94,6 +92,8 @@ metadata:
   name: overseerr
   namespace: media
 spec:
+  type: LoadBalancer
+  loadBalancerIP: 192.168.71.171
   ports:
     - port: 5055
       targetPort: 5055
@@ -108,8 +108,8 @@ metadata:
   namespace: media
 spec:
   hosts:
-    - "overseerr.home.lab"
-    - "requests.home.lab" # Public facing alias
+    - "overseerr.bavsworld.com"
+    - "requests.bavsworld.com" # Public facing alias
   gateways:
     - istio-system/default-gateway
   http:

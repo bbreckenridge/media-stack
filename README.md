@@ -110,21 +110,22 @@ Each pod runs an `exportarr` sidecar to translate application APIs into **Promet
 
 ---
 
+
 ## 5. Catalog 📚
 
-| Application | Function | Hardware Accel |
-| :--- | :--- | :--- |
-| **Sonarr** | TV Shows | N/A |
-| **Radarr** | Movies | N/A |
-| **Lidarr** | Music | N/A |
-| **Readarr** | Books | N/A |
-| **Bazarr** | Subtitles | N/A |
-| **Prowlarr** | Indexer | N/A |
-| **SABnzbd** | Downloader | N/A |
-| **Plex** | Media Server | **Nvidia GPU** (Transcode) |
-| **Overseerr**| Requests | N/A |
-| **Tautulli** | Monitoring | N/A |
-| **Recyclarr**| Sync Job | N/A |
+| Application | Function | Hardware Accel | Static IP (MetalLB) |
+| :--- | :--- | :--- | :--- |
+| **Plex** | Media Server | **Nvidia GPU** (Transcode) | `<STATIC-IP-1>` |
+| **Sonarr** | TV Shows | N/A | `<STATIC-IP-2>` |
+| **Radarr** | Movies | N/A | `<STATIC-IP-3>` |
+| **Lidarr** | Music | N/A | `<STATIC-IP-4>` |
+| **Readarr** | Books | N/A | `<STATIC-IP-5>` |
+| **Bazarr** | Subtitles | N/A | `<STATIC-IP-6>` |
+| **Prowlarr** | Indexer | N/A | `<STATIC-IP-7>` |
+| **SABnzbd** | Downloader | N/A | `<STATIC-IP-8>` |
+| **Overseerr**| Requests | N/A | `<STATIC-IP-9>` |
+| **Tautulli** | Monitoring | N/A | `<STATIC-IP-10>` |
+| **Recyclarr**| Sync Job | N/A | N/A |
 
 ---
 
@@ -137,31 +138,107 @@ To minimize the attack surface, we do **not** expose services directly to the pu
 2.  **Authentication**: Tailscale Identity (MFA/SSO).
 3.  **Routing**:
     *   **User** connects to Tailscale.
-    *   **User** accesses `*.home.lab` (configured via local DNS or hosts file pointing to Istio Gateway VIP).
+    *   **User** accesses `*.bavsworld.com` (configured via local DNS or hosts file pointing to Istio Gateway VIP).
     *   **Traffic** flows: `VPN -> MetalLB -> Istio Gateway -> AuthPolicy -> Pod`.
 
 ---
 
-## 7. Getting Started 🚀
+## 7. CI/CD & Validation 🚀
 
-### 7.1 Create Secrets
-Before deploying, generate the required secrets for the applications.
+We treat Infrastructure as Code (IaC) with the same rigor as application code.
+
+### 7.1 Pipeline Structure
+*   **Workflow**: [`.github/workflows/ci.yaml`](.github/workflows/ci.yaml)
+*   **Triggers**: Push/PR to `main`.
+*   **Checks**:
+    1.  **YAML Linting**: Enforces consistent formatting using `yamllint`.
+    2.  **Kustomize Build**: Ensures all patches and overlays merge correctly.
+    3.  **Schema Validation**: Uses `kubeconform` to verify strict Kubernetes API compliance (catch typos, wrong types).
+    4.  **Security Scan**: Uses `Trivy` to scan for IaC misconfigurations and vulnerabilities.
+
+### 7.2 Validation Tools
+*   **Run Check (Local)**: `./scripts/validate-manifests.sh`
+*   **Monitor CI (Remote)**: `./scripts/monitor-ci.ps1`
+
+---
+
+## 8. Configuration as Code 🏗️
+
+We have codified the configuration and integration of the stack to minimize manual click-ops.
+
+### 8.1 Recyclarr (Quality Profiles)
+Recyclarr syncs quality definitions (TRaSH Guides) to Sonarr/Radarr.
+*   **Config**: `kubernetes/apps/media/recyclarr/config.yaml` (Managed in Git).
+*   **Secrets**: API Keys are injected via the `!env_var` feature using Kubernetes Secrets.
+*   **Update**: Edit the ConfigMap, push to Git, and the CronJob runs daily (or manually trigger).
+
+### 8.2 Integration Job (Auto-Linking)
+Instead of manually adding Prowlarr to Sonarr, or Sonarr to SABnzbd:
+*   **Job**: `kubernetes/apps/media/setup-job`
+*   **Action**: Runs `configure.sh` which hits the APIs of the deployed services.
+*   **Effect**: Automatically links Indexers (Prowlarr -> *Arrs) and Download Clients (*Arrs -> SABnzbd).
+*   **Scope**: Supports Sonarr, Radarr, Lidarr, and Readarr.
+*   **Run**: Applied automatically with Kustomize. Safe to re-run (Idempotent).
+
+---
+
+## 9. Day 2 Operations Guide 🛠️
+
+### 9.1 Updating Applications
+To update an application (e.g., Sonarr) to a new version:
+1.  Edit `kubernetes/apps/media/sonarr/app.yaml`.
+2.  Update the `image:` tag.
+3.  Validate: `./scripts/validate-manifests.sh`.
+4.  Apply: `kubectl apply -k kubernetes/apps/media/sonarr`.
+
+### 9.2 Rotating Secrets (SOPS)
+If an API key is compromised:
+1.  Edit the encrypted secrets file:
+    ```bash
+    sops kubernetes/apps/media/secrets.sops.yaml
+    ```
+2.  Update the value (e.g., generate a new API key).
+3.  Save and Exit (SOPS handles re-encryption).
+4.  Apply to cluster:
+    ```bash
+    sops -d kubernetes/apps/media/secrets.sops.yaml | kubectl apply -f -
+    ```
+5.  Restart pods to pick up new keys.
+
+### 9.3 Troubleshooting "CrashLoopBackOff"
+*   **Check Logs**: `kubectl logs -n media sonarr-0 -c sonarr` (Check previous logs with `-p` if it crashed immediately).
+*   **Check Permissions**: If `sqlite3 readonly` error, the `fsGroup: 1000` context might not be propagating to the NFS share. Verify the underlying storage permissions.
+
+---
+
+## 10. Getting Started 🚀
+
+### 10.1 Deploy Secrets (SOPS)
+Unlock the secrets using your Age key and apply them to the cluster.
 
 ```bash
-# 1. Plex Claim Token (https://www.plex.tv/claim)
-kubectl create secret generic plex-secret -n media --from-literal=plex_claim="claim-xxxxx"
-
-# 2. API Keys for *ARR Apps (Generate random strong strings)
-kubectl create secret generic prowlarr-secret -n media --from-literal=api_key="$(openssl rand -hex 16)"
-kubectl create secret generic sonarr-secret -n media --from-literal=api_key="$(openssl rand -hex 16)"
-kubectl create secret generic radarr-secret -n media --from-literal=api_key="$(openssl rand -hex 16)"
-kubectl create secret generic lidarr-secret -n media --from-literal=api_key="$(openssl rand -hex 16)"
-kubectl create secret generic readarr-secret -n media --from-literal=api_key="$(openssl rand -hex 16)"
-kubectl create secret generic bazarr-secret -n media --from-literal=api_key="$(openssl rand -hex 16)"
-kubectl create secret generic sabnzbd-secret -n media --from-literal=api_key="$(openssl rand -hex 16)"
+sops -d kubernetes/apps/media/secrets.sops.yaml | kubectl apply -f -
 ```
 
-### 7.2 Deploy
+### 10.2 Deploy Stack
+
+#### Option A: Secure Deployment (Default)
+**Requirement**: Keycloak and DNS are configured.
 ```bash
 kubectl apply -k kubernetes/apps/media
 ```
+
+#### Option B: Pre-Keycloak Deployment (No-Auth)
+**Requirement**: None. Bypasses all authentication (Use only on trusted LAN).
+```bash
+kubectl apply -k kubernetes/apps/overlays/media-no-auth
+```
+This overlay strips out `AuthorizationPolicy` and `RequestAuthentication` resources, allowing you to access the Static IPs directly.
+
+### 10.3 Deployment Breakdown
+This will deploy:
+1.  All Applications (StatefulSets) with Static IPs (`<STATIC-IP-1>+`).
+2.  Network Polices & Istio Rules.
+3.  Recyclarr (for config sync).
+4.  Setup Job (for integration linking).
+

@@ -1,0 +1,41 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: integration-setup
+  namespace: media
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  ttlSecondsAfterFinished: 3600 # Clean up successful job after 1 hour
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: setup
+          image: curlimages/curl
+          command: ["/bin/sh", "/scripts/configure.sh"]
+          env:
+            - name: PROWLARR_API_KEY
+              valueFrom: { secretKeyRef: { name: prowlarr-secret, key: api_key } }
+            - name: SONARR_API_KEY
+              valueFrom: { secretKeyRef: { name: sonarr-secret, key: api_key } }
+            - name: RADARR_API_KEY
+              valueFrom: { secretKeyRef: { name: radarr-secret, key: api_key } }
+            - name: LIDARR_API_KEY
+              valueFrom: { secretKeyRef: { name: lidarr-secret, key: api_key } }
+            - name: READARR_API_KEY
+              valueFrom: { secretKeyRef: { name: readarr-secret, key: api_key } }
+            - name: BAZARR_API_KEY
+              valueFrom: { secretKeyRef: { name: bazarr-secret, key: api_key } }
+            - name: SABNZBD_API_KEY
+              valueFrom: { secretKeyRef: { name: sabnzbd-secret, key: api_key } }
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+      volumes:
+        - name: scripts
+          configMap:
+            name: setup-script
+            defaultMode: 0755

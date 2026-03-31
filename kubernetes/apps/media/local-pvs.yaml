@@ -1,0 +1,274 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: media-library-pv
+spec:
+  capacity:
+    storage: 10Ti
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: capacity-storage
+  claimRef:
+    namespace: media
+    name: media-library
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - k3s-node
+  hostPath:
+    path: /mnt/media/library
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: plex-config-pv
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: hot-storage
+  claimRef:
+    namespace: media
+    name: plex-config
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - k3s-node
+  hostPath:
+    path: /mnt/media/config/plex
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: sonarr-config-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: hot-storage
+  claimRef:
+    namespace: media
+    name: sonarr-config
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - k3s-node
+  hostPath:
+    path: /mnt/media/config/sonarr
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: radarr-config-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: hot-storage
+  claimRef:
+    namespace: media
+    name: radarr-config
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - k3s-node
+  hostPath:
+    path: /mnt/media/config/radarr
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: lidarr-config-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: hot-storage
+  claimRef:
+    namespace: media
+    name: lidarr-config
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - k3s-node
+  hostPath:
+    path: /mnt/media/config/lidarr
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: readarr-config-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: hot-storage
+  claimRef:
+    namespace: media
+    name: readarr-config
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - k3s-node
+  hostPath:
+    path: /mnt/media/config/readarr
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: prowlarr-config-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: hot-storage
+  claimRef:
+    namespace: media
+    name: prowlarr-config
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - k3s-node
+  hostPath:
+    path: /mnt/media/config/prowlarr
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: bazarr-config-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: hot-storage
+  claimRef:
+    namespace: media
+    name: bazarr-config
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - k3s-node
+  hostPath:
+    path: /mnt/media/config/bazarr
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: sabnzbd-config-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: hot-storage
+  claimRef:
+    namespace: media
+    name: sabnzbd-config
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - k3s-node
+  hostPath:
+    path: /mnt/media/config/sabnzbd
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: tautulli-config-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: hot-storage
+  claimRef:
+    namespace: media
+    name: tautulli-config
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - k3s-node
+  hostPath:
+    path: /mnt/media/config/tautulli
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: overseerr-config-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: hot-storage
+  claimRef:
+    namespace: media
+    name: overseerr-config
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - k3s-node
+  hostPath:
+    path: /mnt/media/config/overseerr

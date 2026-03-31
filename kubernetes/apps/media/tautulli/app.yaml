@@ -26,19 +26,49 @@ spec:
     metadata:
       labels:
         app: tautulli
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9794"
+        prometheus.io/path: "/metrics"
     spec:
       securityContext:
         fsGroup: 1000
-        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       containers:
+        - name: exportarr
+          image: ghcr.io/onedr0p/exportarr:v2.0.0
+          imagePullPolicy: IfNotPresent
+          args: ["tautulli"]
+          env:
+            - name: PORT
+              value: "9794"
+            - name: URL
+              value: "http://localhost:8181"
+            - name: APIKEY
+              valueFrom:
+                secretKeyRef:
+                  name: tautulli-secret
+                  key: api_key
+          ports:
+            - containerPort: 9794
+              name: metrics
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 50Mi
+            limits:
+              cpu: 100m
+              memory: 100Mi
         - name: tautulli
           image: lscr.io/linuxserver/tautulli:latest
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
           env:
@@ -76,10 +106,10 @@ spec:
               mountPath: /tmp
           resources:
             requests:
-              memory: "250Mi"
+              memory: 256Mi
               cpu: "100m"
             limits:
-              memory: "512Mi"
+              memory: 256Mi
               cpu: "500m"
       volumes:
         - name: config
@@ -94,6 +124,8 @@ metadata:
   name: tautulli
   namespace: media
 spec:
+  type: LoadBalancer
+  loadBalancerIP: 192.168.71.172
   ports:
     - port: 8181
       targetPort: 8181
@@ -108,7 +140,7 @@ metadata:
   namespace: media
 spec:
   hosts:
-    - "tautulli.home.lab"
+    - "tautulli.bavsworld.com"
   gateways:
     - istio-system/default-gateway
   http:

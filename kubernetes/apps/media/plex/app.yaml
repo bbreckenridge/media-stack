@@ -27,21 +27,47 @@ spec:
       labels:
         app: plex
       annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9594"
+        prometheus.io/path: "/metrics"
         # GPU Partitioning via Nvidia Device Plugin
         k8s.v1.cni.cncf.io/networks: "macvlan-conf" # Optional: If needing direct L2 (Macvlan) for DLNA
     spec:
       securityContext:
         fsGroup: 1000
-        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       containers:
+        - name: plex-exporter
+          image: lukapusic/plex_exporter:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: PLEX_Addr
+              value: "http://localhost:32400"
+            - name: PLEX_Token
+              valueFrom:
+                secretKeyRef:
+                  name: plex-secret
+                  key: plex_token
+          ports:
+            - containerPort: 9594
+              name: metrics
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 50Mi
+            limits:
+              cpu: 100m
+              memory: 100Mi
         - name: plex
           image: lscr.io/linuxserver/plex:latest
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
           env:
@@ -90,10 +116,10 @@ spec:
               mountPath: /tmp
           resources:
             requests:
-              memory: "2Gi"
+              memory: 256Mi
               cpu: "1000m"
             limits:
-              memory: "8Gi"
+              memory: 256Mi
               cpu: "4000m"
               nvidia.com/gpu: 1 # GPU Request
       volumes:
@@ -115,7 +141,8 @@ metadata:
   name: plex
   namespace: media
 spec:
-  type: LoadBalancer # Expose directly to LAN for best streaming performance/discovery
+  type: LoadBalancer
+  loadBalancerIP: 192.168.71.163
   ports:
     - port: 32400
       targetPort: 32400
@@ -130,7 +157,7 @@ metadata:
   namespace: media
 spec:
   hosts:
-    - "plex.home.lab"
+    - "plex.bavsworld.com"
   gateways:
     - istio-system/default-gateway
   http:

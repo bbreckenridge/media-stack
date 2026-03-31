@@ -38,5 +38,5 @@ metadata:
   namespace: media
 spec:
   jwtRules:
-    - issuer: "https://auth.home.lab/realms/master"
+    - issuer: "https://auth.bavsworld.com/realms/master"
       jwksUri: "http://keycloak.auth.svc.cluster.local:8080/realms/master/protocol/openid-connect/certs" # internal cluster DNS for speed/reliability

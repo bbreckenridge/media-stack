@@ -24,7 +24,10 @@ spec:
     - namespaceSelector:
         matchLabels:
           kubernetes.io/metadata.name: istio-system 
-    # Allow traffic from ingress gateway and pilot
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: media
+    # Allow traffic from ingress gateway, pilot, and internal namespace
   egress:
   - to:
     - namespaceSelector:

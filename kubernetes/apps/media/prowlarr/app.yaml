@@ -33,7 +33,6 @@ spec:
     spec:
       securityContext:
         fsGroup: 1000
-        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -56,7 +55,6 @@ spec:
               name: metrics
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
           resources:
@@ -71,7 +69,6 @@ spec:
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
           env:
@@ -111,10 +108,10 @@ spec:
               mountPath: /run
           resources:
             requests:
-              memory: "250Mi"
+              memory: 256Mi
               cpu: "100m"
             limits:
-              memory: "512Mi"
+              memory: 256Mi
               cpu: "500m"
       volumes:
         - name: config
@@ -131,6 +128,8 @@ metadata:
   name: prowlarr
   namespace: media
 spec:
+  type: LoadBalancer
+  loadBalancerIP: 192.168.71.169
   ports:
     - port: 9696
       targetPort: 9696
@@ -145,7 +144,7 @@ metadata:
   namespace: media
 spec:
   hosts:
-    - "prowlarr.home.lab"
+    - "prowlarr.bavsworld.com"
   gateways:
     - istio-system/default-gateway # Assumed existing Gateway
   http:

@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: recyclarr-config
+  namespace: media
+data:
+  recyclarr.yml: |
+    # Recyclarr Configuration (Managed by GitOps)
+    # https://github.com/recyclarr/recyclarr
+
+    sonarr:
+      tv-hd:
+        base_url: http://sonarr:8989
+        api_key: !env_var SONARR_API_KEY
+        # Standard TRaSH Quality Definition
+        quality_definition:
+          type: series
+        # Standard TRaSH Quality Profile
+        quality_profile:
+          - name: WEB-1080p
+        # Custom Formats (Score scaling)
+        custom_formats:
+          - trash_ids:
+              - 32b36d07-f84d-42a1-9456-a75d502fb8da # HDR10 Perf
+              - 9b27ab64-500b-4bdc-96b6-50a624aa99d4 # DV
+            quality_profiles:
+              - name: WEB-1080p
+
+    radarr:
+      movies-hd:
+        base_url: http://radarr:7878
+        api_key: !env_var RADARR_API_KEY
+        quality_definition:
+          type: movie
+        quality_profile:
+          - name: HD-1080p
+        custom_formats:
+          - trash_ids:
+              - e23161e1-12f5-48b2-a42e-152e92c23f2f # Remux (Lower Score)
+            quality_profiles:
+              - name: HD-1080p
